@@ -1,12 +1,13 @@
-(ns language-extensions.core
+(ns clojure-source.core
   (:require [clojure.walk]
             [clojure.core.match]
             [clojure.pprint]
             [clojure.reflect]
-            [language-extensions.try-wrap-debugging]
-            [language-extensions.types]
-            [language-extensions.imperative-oop]
-            [language-extensions.infix]))
+            [clojure-source.try-wrap-debugging]
+            [clojure-source.types]
+            [clojure-source.imperative-oop :refer [uset! uget]]
+            [clojure-source.infix]
+            [clojure-source.macro-helpers]))
 
 ;; by David Edgar Liebke http://incanter.org
 ;; March 11, 2009
@@ -22,18 +23,15 @@
 ;; CHANGE LOG
 ;; March 11, 2009: First version
 
-(comment (if (find-ns 'com.badlogic.gdx.math)
-           (import '(com.badlogic.gdx.math MathUtils))))
-
 (defmacro match
   [& code]
   `(clojure.core.match/match ~@code))
 
 (defmacro def-method
   ([name args code]
-   `(language-extensions.imperative-oop/def-method ~name ~args ~code))
+   `(clojure-source.imperative-oop/def-method ~name ~args ~code))
   ([name doc args code]
-   `(language-extensions.imperative-oop/def-method ~name ~doc ~args ~code)))
+   `(clojure-source.imperative-oop/def-method ~name ~doc ~args ~code)))
 
 
 
@@ -60,56 +58,37 @@
   "Make sure everything in i is written as a normal math expression!"
   [& equation]
   ;(let [corrected (make-args-proper equation)]
-    (language-extensions.infix/infix-to-prefix equation))
+    (clojure-source.infix/infix-to-prefix equation))
 
 
 ;allow thread safe imperative constructs!
 
 (defmacro vars
   [args & code]
-  `(language-extensions.imperative-oop/vars ~args ~@code))
+  (clojure-source.imperative-oop/vars args code))
 
 
-(clojure.core/defn- format-helper
-  [code]
-  (loop [[[a] b & rest :as code] (partition-by keyword? code)
-         updated-code []]
-    (if (seq code)
-      (recur rest (conj updated-code a (cons 'i b)))
-      updated-code)))
 
-(clojure.core/defn- apply-obj-syms
-  [obj sym code]
-  (loop [[a b & rest :as code] (format-helper code)
-         updated-code []]
-    (if (seq code)
-      (recur rest (conj updated-code a (list sym (list a obj) b)))
-      updated-code)))
-
-(clojure.core/defn- apply-assoc-to-code
-  [obj sym code]
-  (-> (apply-obj-syms obj sym code)
-      (->> (cons obj)
-           (cons 'assoc))))
 
 (defmacro +=
   [object & code]
-  (let [code (apply-assoc-to-code object '+ code)]
+  {:pre  [(map? (eval object))]}
+  (let [code (clojure-source.macro-helpers/apply-assoc-to-code object '+ code)]
     code))
 
 (defmacro -=
   [object & code]
-  (let [code (apply-assoc-to-code object '- code)]
+  (let [code (clojure-source.macro-helpers/apply-assoc-to-code object '- code)]
     code))
 
 (defmacro *=
   [object & code]
-  (let [code (apply-assoc-to-code object '* code)]
+  (let [code (clojure-source.macro-helpers/apply-assoc-to-code object '* code)]
     code))
 
 (defmacro |=
   [object & code]
-  (let [code (apply-assoc-to-code object (symbol "clojure.core//") code)]
+  (let [code (clojure-source.macro-helpers/apply-assoc-to-code object (symbol "clojure.core//") code)]
     code))
 
 (clojure.core/defn get-methods
@@ -141,47 +120,32 @@
   [name & code]
   (let [{:keys [args doc code]} (format-code code)
         code (if args
-               (language-extensions.try-wrap-debugging/wrap-tries name (list (cons args code)))
-               (language-extensions.try-wrap-debugging/wrap-tries name code))]
-    (reset! language-extensions.try-wrap-debugging/can-i-print? true)
+               (clojure-source.try-wrap-debugging/wrap-tries name (list (cons args code)))
+               (clojure-source.try-wrap-debugging/wrap-tries name code))]
+    (reset! clojure-source.try-wrap-debugging/can-i-print? true)
     `(clojure.core/defn ~name ~doc ~@code)))
+
+
 
 (defmacro for-loop
   [[a b c d] & code]
-   `(language-extensions.imperative-oop/for-loop [~a ~b ~c ~d] ~@code))
+   `(clojure-source.imperative-oop/for-loop [~a ~b ~c ~d] ~@code))
 
 
 
-(defn universal-setter
-  [obj-name operation code]
-  (let [type (->> (eval obj-name)
-                  type
-                  str
-                  (drop-while #(not= % \space))
-                  rest
-                  (apply str)
-                  symbol)
-        type-hinted (vary-meta obj-name assoc :tag type)]
-    (conj (for [[a b] (partition 2 (format-helper code))
-                :let [obj-format (->> (re-find #"[A-Za-z]+" (str a))
-                                      (str ".")
-                                      symbol
-                                      (list type-hinted)
-                                      reverse)]]
-            `(set! ~obj-format (~operation ~obj-format ~b)))
-          'do)))
+
 
 (defmacro +=!
   [obj-name & code]
-  (universal-setter obj-name '+ code))
+  (clojure-source.imperative-oop/universal-setter-math obj-name '+ code))
 (defmacro -=!
   [obj-name & code]
-  (universal-setter obj-name '- code))
+  (clojure-source.imperative-oop/universal-setter-math obj-name '- code))
 (defmacro *=!
   [obj-name & code]
-  (universal-setter obj-name '* code))
+  (clojure-source.imperative-oop/universal-setter-math obj-name '* code))
 (defmacro |=!
   [obj-name & code]
-  (universal-setter obj-name '/ code))
+  (clojure-source.imperative-oop/universal-setter-math obj-name '/ code))
 
 

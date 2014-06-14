@@ -1,4 +1,4 @@
- (ns language-extensions.infix)
+ (ns clojure-source.infix)
 
 ;; operator precedence for formula macro
 (def +precedence-table+ (atom {}))

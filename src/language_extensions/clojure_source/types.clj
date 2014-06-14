@@ -1,4 +1,4 @@
-(ns language-extensions.types)
+(ns clojure-source.types)
 
 (defn type=?
   [x val]

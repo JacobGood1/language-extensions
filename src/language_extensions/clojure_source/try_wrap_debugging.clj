@@ -1,6 +1,6 @@
-(ns language-extensions.try-wrap-debugging
+(ns clojure-source.try-wrap-debugging
   (:require [clojure.core.match])
-  (:use [language-extensions.types]))
+  (:use [clojure-source.types]))
 
 (def can-i-print? (atom true))
 

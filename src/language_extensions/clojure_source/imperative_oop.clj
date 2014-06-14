@@ -1,7 +1,8 @@
-(ns language-extensions.imperative-oop
-  (:import (language_extensions.internal_mutation_capsules LongHolder RatioHolder DoubleHolder BooleanHolder))
+(ns clojure-source.imperative-oop
+  (:import (internal_mutation_capsules LongHolder RatioHolder DoubleHolder BooleanHolder))
   (:require [clojure.walk]
-            [clojure.core.match]))
+            [clojure.core.match]
+            [clojure-source.macro-helpers]))
 
 (defn- make-map-destructure
   [map obj-name]
@@ -163,7 +164,7 @@
                                   x))
                         code))
 
-
+;TODO investigate issue with vars it is no longer working
 (defmacro vars
   [args & code]
   (let [args (make-mutable-args args)
@@ -187,3 +188,36 @@
             ~(if inc-it?
                (read-string (str `(~(symbol inc-symbol) ~name)))
                (read-string (str `(~(symbol inc-symbol) ~name ~(symbol amount)))))))))
+
+
+(defn universal-setter-math
+  [obj-name operation code]
+  (conj (for [[a b] (partition 2 (clojure-source.macro-helpers/format-helper-infix code))]
+          `(set! ~(clojure-source.macro-helpers/obj-format obj-name a)
+                 (~operation ~(clojure-source.macro-helpers/obj-format obj-name a) ~b)))
+        'do))
+
+
+
+;TODO to-java and a (true universal setter APPEARS TO WORK)
+
+(defmacro uset!
+  [obj-name & code]
+  (concat '(do)
+          (for [[[key] [code]] (->> (partition-by keyword? code)
+                                    (partition 2))]
+            `(set! ~(clojure-source.macro-helpers/obj-format obj-name key) ~code))
+          (list obj-name)))
+
+(defn- uget-setup
+  [obj-name fields-to-get]
+  (if (> (count fields-to-get) 1)
+    (mapv #(clojure-source.macro-helpers/obj-format obj-name %) fields-to-get)
+    (clojure-source.macro-helpers/obj-format obj-name (first fields-to-get))))
+
+(defmacro uget
+  "takes an object and keys that correspond to that objects fields
+  gets all the fields and returns as a vector, if one value given it will only
+  return one field without the vector"
+  [obj-name & fields-to-get]
+  (uget-setup obj-name fields-to-get))

@@ -1,4 +1,4 @@
-package language_extensions.internal_mutation_capsules;
+package internal_mutation_capsules;
 
 import clojure.lang.Ratio;
 

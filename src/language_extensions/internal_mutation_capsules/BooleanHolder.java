@@ -1,4 +1,4 @@
-package language_extensions.internal_mutation_capsules;
+package internal_mutation_capsules;
 
 /**
  * Created by jacob on 6/10/2014.
