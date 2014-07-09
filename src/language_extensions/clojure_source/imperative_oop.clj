@@ -1,5 +1,5 @@
 (ns clojure-source.imperative-oop
-  (:import (internal_mutation_capsules LongHolder RatioHolder DoubleHolder BooleanHolder))
+  (:import [internal_mutation_capsules LongHolder RatioHolder DoubleHolder BooleanHolder])
   (:require [clojure.walk]
             [clojure.core.match]
             [clojure-source.macro-helpers]))
@@ -63,7 +63,7 @@
   [args]
   (->> (for [[arg [value name]] args]
          (cond
-           (re-find #"language_extensions.internal_mutation_capsules.*" (str name)) {arg (str "marked-get-" arg)}
+           (re-find #"internal_mutation_capsules.*" (str name)) {arg (str "marked-get-" arg)}
            (= value 'clojure.core/transient) {arg (str "marked-transient-" arg)}
            :else {arg arg}))
        (map seq)
@@ -145,6 +145,7 @@
                                                                                               :else       x)))
                                   x))
                         code))
+
 (defn- get-vals-from-singles
   [code]
   (for [x code]
@@ -164,9 +165,8 @@
                                   x))
                         code))
 
-;TODO investigate issue with vars it is no longer working
-(defmacro vars
-  [args & code]
+(defn vars
+  [args code]
   (let [args (make-mutable-args args)
         code (-> (pop-value-out-of-containers args code)
                  findop
@@ -189,17 +189,14 @@
                (read-string (str `(~(symbol inc-symbol) ~name)))
                (read-string (str `(~(symbol inc-symbol) ~name ~(symbol amount)))))))))
 
-
 (defn universal-setter-math
   [obj-name operation code]
-  (conj (for [[a b] (partition 2 (clojure-source.macro-helpers/format-helper-infix code))]
-          `(set! ~(clojure-source.macro-helpers/obj-format obj-name a)
-                 (~operation ~(clojure-source.macro-helpers/obj-format obj-name a) ~b)))
-        'do))
+  (concat '(do)
+          (for [[a b] (partition 2 (clojure-source.macro-helpers/format-helper-infix code))]
+            `(set! ~(clojure-source.macro-helpers/obj-format obj-name a)
+                   (~operation ~(clojure-source.macro-helpers/obj-format obj-name a) ~b)))
+          (list obj-name)))
 
-
-
-;TODO to-java and a (true universal setter APPEARS TO WORK)
 
 (defmacro uset!
   [obj-name & code]
@@ -220,4 +217,17 @@
   gets all the fields and returns as a vector, if one value given it will only
   return one field without the vector"
   [obj-name & fields-to-get]
+  {:pre [(not (empty? fields-to-get))]}
   (uget-setup obj-name fields-to-get))
+
+
+(defn type-hinted-def
+  [name vals]
+    (let [str-type (last (re-find #"(new |)([^\(\)]+)" (str vals)))
+          type (if (= \. (last str-type))
+                 (->> (butlast str-type)
+                      (apply str)
+                      symbol)
+                 (symbol str-type))
+          type (vary-meta name assoc :tag type)]
+      `(def ~type ~vals)))

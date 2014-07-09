@@ -26,14 +26,15 @@
 (defmacro match
   [& code]
   `(clojure.core.match/match ~@code))
-
 (defmacro def-method
   ([name args code]
    `(clojure-source.imperative-oop/def-method ~name ~args ~code))
   ([name doc args code]
    `(clojure-source.imperative-oop/def-method ~name ~doc ~args ~code)))
 
-
+(defmacro defobject
+  [name code]
+  (clojure-source.imperative-oop/type-hinted-def name code))
 
 
 (clojure.core/defn- make-args-proper
@@ -67,12 +68,14 @@
   [args & code]
   (clojure-source.imperative-oop/vars args code))
 
-
+(defmacro List
+  "makes a java list, fully mutable!"
+  []
+  `(java.util.ArrayList.))
 
 
 (defmacro +=
   [object & code]
-  {:pre  [(map? (eval object))]}
   (let [code (clojure-source.macro-helpers/apply-assoc-to-code object '+ code)]
     code))
 
@@ -130,10 +133,6 @@
 (defmacro for-loop
   [[a b c d] & code]
    `(clojure-source.imperative-oop/for-loop [~a ~b ~c ~d] ~@code))
-
-
-
-
 
 (defmacro +=!
   [obj-name & code]

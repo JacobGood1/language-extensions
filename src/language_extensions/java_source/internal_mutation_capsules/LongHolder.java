@@ -1,7 +1,5 @@
 package internal_mutation_capsules;
 
-import clojure.lang.Ratio;
-
 /**
  * Created by jacob on 6/8/2014.
  */

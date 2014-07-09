@@ -1,17 +1,6 @@
-(ns clojure-source.macro-helpers)
+(ns clojure-source.macro-helpers
+  (:require [clojure.reflect]))
 
-(defn attach-type-information-to-symbol
-  "Takes a symbol, determines its type,
-   then attaches that type as a type hint to the symbol itself,
-   this will avoid reflection!"
-  [sym]
-  (vary-meta sym assoc :tag (->> (eval sym)
-                                 type
-                                 str
-                                 (drop-while #(not= % \space))
-                                 rest
-                                 (apply str)
-                                 symbol)))
 
 (defn obj-format
   "Takes a keyword and an object and turns it into a java call
@@ -19,12 +8,11 @@
   After doing so it makes tha call on the object with a type hint
   OBJECT MUST BE BOUND TO A SYMBOL, CANNOT WORK WITH OBJECTS CREATED ON THE FLY"
   [obj keyw]
-  (let [type (attach-type-information-to-symbol obj)]
-    (->> (re-find #"[A-Za-z]+" (str keyw))
-         (str ".")
-         symbol
-         (list type)
-         reverse)))
+  (->> (re-find #"[A-Za-z]+" (str keyw))
+       (str ".")
+       symbol
+       (list obj)
+       reverse))
 
 
 (clojure.core/defn format-helper-infix
